@@ -17,15 +17,11 @@ bibliography: citations.bib
 link-citations: yes
 csl: ieee.csl
 ---
-RECURSO::: https://materials.campus.uoc.edu/daisy/Materials/PID_00265704/pdf/PID_00265704.pdf
-NOTA::: HAY MUCHOS EJEMPLOS EN https://www.kaggle.com/datasets/uciml/red-wine-quality-cortez-et-al-2009/code?datasetId=4458&sortBy=voteCount&language=R
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 Se desea elaborar un proyecto analítico y usar las herramientas de integración, limpieza, validación y análisis de las mismas.
-****
 # Dataset "Red Wine Quality"
-****
 ## ¿Por qué es importante? ¿Qué problema pretende responder?
 Enlace al dataset de Kaggle [Red Wine Quality](https://www.kaggle.com/datasets/uciml/red-wine-quality-cortez-et-al-2009)
 
@@ -58,60 +54,40 @@ Variable de salida (basada en datos sensoriales):
 Instalamos y cargamos las librerías necesarias
 ```{r echo=TRUE, message=FALSE, warning=FALSE}
 if (!require('ggplot2')) install.packages('ggplot2'); library('ggplot2')
-if (!require('dplyr')) install.packages('dplyr'); library('dplyr')
 if (!require('corrplot')) install.packages('dplyr'); library('corrplot')
+if (!require('randomForest')) install.packages('randomForest'); library('randomForest')
+if (!require('ggthemes')) install.packages('ggthemes'); library('ggthemes')
+if (!require('reshape2')) install.packages('reshape2'); library('reshape2')
+if (!require('dplyr')) install.packages('dplyr'); library('dplyr')
 ```
 Cargamos el fichero de datos
 ```{r}
 wines <- read.csv('winequality-red.csv',stringsAsFactors = FALSE)
-rows=dim(wines)[1]
 ```
 # Integración y selección de los datos de interés a analizar
 ```{r}
+wines$good.wine<-ifelse(wines$quality>6,1,0) # Variable que indique si un vino es bueno o malo
 str(wines)
 ```
-Vemo que tenemos 1599 registros y 12 variables que los caracterizan.
+Vemo que tenemos 1599 registros y 13 variables que los caracterizan.
 ```{r echo=TRUE, message=FALSE, warning=FALSE}
 summary(wines)
 ```
-Estas son las estadísticas básicas. Veamos ahora las distribuciones:
+Estas son las estadísticas básicas con skim.
+Intentamos predecir la calidad del vino, por lo que nos interesan las dos últimas columnas/filas para saber cuál de las variables tiene una mayor relación con la calidad del vino. Como sugiere el mapa de calor, el alcohol tiene la mayor correlación con la calidad del vino. 
 ```{r message= FALSE, warning=FALSE}
-par(mfrow=c(2,2))
-barplot(table(wines$fixed.acidity))
-barplot(table(wines$volatile.acidity))
-barplot(table(wines$citric.acid))
-barplot(table(wines$residual.sugar))
-barplot(table(wines$chlorides))
-barplot(table(wines$free.sulfur.dioxide))
-barplot(table(wines$total.sulfur.dioxide))
-barplot(table(wines$density))
-barplot(table(wines$pH))
-barplot(table(wines$sulphates))
-barplot(table(wines$alcohol))
-barplot(table(wines$quality))
+ggplot(wines,aes(x=quality))+geom_bar(stat = "count",position = "dodge")+
+  scale_x_continuous(breaks = seq(3,8,1))+
+  ggtitle("Distribución de las puntuaciones de calidad")+
+  theme_classic()
 ```
-Nos proponemos analizar las relaciones entre las diferentes variables del juego de datos para ver si se relacionan y cómo. Visualizamos la relación entre las variables "gender" y "survived":
-```{r echo=TRUE, message=FALSE, warning=FALSE}
-ggplot(data=totalData[1:filas,],aes(x=gender,fill=survived))+geom_bar()+ggtitle("Relación entre las variables gender y survived")
+```{r message= FALSE, warning=FALSE}
+ggplot(wines,aes(x=good.wine,fill=factor(good.wine)))+geom_bar(stat = "count",position = "dodge")+
+  scale_x_continuous(breaks = seq(0,1,1))+
+  ggtitle("Distribution of Good/Bad Red Wines")
+  theme_classic()
 ```
-Obtenemos ahora una matriz de porcentajes de frecuencia.
-Vemos, por ejemplo que la probabilidad de sobrevivir si se embarcó en "C" es de un 56.45%
-
-```{r echo=TRUE, message=FALSE, warning=FALSE}
-t<-table(totalData[1:filas,]$embarked,totalData[1:filas,]$survived)
-for (i in 1:dim(t)[1]){
-    t[i,]<-t[i,]/sum(t[i,])*100
-}
-t
-```
-
-Veamos ahora como en un mismo gráfico de frecuencias podemos trabajar con 3 variables: Embarked, Survived y class.
-
-Mostramos el gráfico de embarcados por Pclass:
-
-```{r echo=TRUE, message=FALSE, warning=FALSE}
-ggplot(data = totalData[1:filas,],aes(x=embarked,fill=survived))+geom_bar(position="fill")+facet_wrap(~class)+ggtitle("Pasajeros por clase, puerto de origen y relación con survived")
-```
+El gráfico de arriba muestra lo que ya habíamos deducido anteriormente, que los buenos vinos fueron superados por los malos por un amplio margen. La mayoría de los vinos eran mediocres (con una calificación de 5 o 6), pero también pudimos ver que hay algunos vinos malos (3 o 4). La gran mayoría de los buenos vinos tiene una calificación de calidad de 7.
 # Limpieza de los datos
 ## Valores vacíos
 ```{r}
@@ -138,41 +114,37 @@ boxplot(wines$quality)
 ```
 NOTA: DECIDIR GESTIÓN DE LOS OUTLIERS
 # Análisis de los datos
-¿Comparar entre los de calidad alta, media y baja? ¿Atributos más determinantes en la calidad? ¿Probar a categorizar por clústeres?
+Como sugiere el editor, clasificaremos los vinos estableciendo un límite arbitrario para nuestra variable dependiente (calidad del vino), por ejemplo, 7 o más se clasifica como "bueno/1" y el resto como "no bueno/0".
+## Clasificación binaria con Random Forest
+No utilizaremos ningún ajuste de hiperparámetros y nos quedaremos con el valor por defecto de la función randomForest.
 ```{r message= FALSE, warning=FALSE}
-sum(datos$quality == 3 | datos$quality == 4)
-sum(datos$quality == 5 | datos$quality == 6)
-sum(datos$quality == 7 | datos$quality == 8)
+winesRF<-randomForest(factor(good.wine)~.-quality,wines,ntree=150)
+winesRF
 ```
-Discretizamos la variable de calidad
-```{r}
-wines["segmento_calidad"] <- cut(wines$quality, breaks = c(0,5,7,9,10), labels = c("Baja", "Media", "Alta", "Excelente"))
-head(wines)
+La precisión global de nuestro modelo es bastante buena, en torno al 92%. Sin embargo, podemos ver claramente que es mucho mejor para predecir los vinos malos que los buenos.
+## Importancia de las variables
+```{r message= FALSE, warning=FALSE}
+# Obtener importancia
+importance    <- importance(winesRF)
+
+varImportance <- data.frame(Variables = row.names(importance), 
+                            Importance = round(importance[ ,'MeanDecreaseGini'],2))
+
+# Crear una variable de rango basada en la importancia
+rankImportance <- varImportance %>%
+  mutate(Rank = paste0('#',dense_rank(desc(Importance))))
+
+# Visualizar la importancia relativa de las variables
+ggplot(rankImportance, aes(x = reorder(Variables, Importance), 
+                           y = Importance, fill = Importance)) +
+  geom_bar(stat='identity') + 
+  geom_text(aes(x = Variables, y = 0.5, label = Rank),
+            hjust=0, vjust=0.55, size = 4, colour = 'red') +
+  labs(x = 'Variables') +
+  coord_flip() + 
+  theme_classic()
 ```
-Vemos cómo se agrupan los vinos por segmento de calidad
-```{r}
-plot(wines$quality,main="Número de vinos por segmento de calidad",xlab="Calidad", ylab="Cantidad",col = "ivory")
-```
-Como alternativa a la discretización realizada discretizaremos ahora edad con kmeans.
-
-```{r}
-# https://cran.r-project.org/web/packages/arules/index.html
-if (!require('arules')) install.packages('arules'); library('arules')
-set.seed(2)
-table(discretize(totalData$age, "cluster" ))
-hist(totalData$age, main="Número de pasajeros por grupos de edad con kmeans",xlab="Edad", ylab="Cantidad",col = "ivory")
-abline(v=discretize(totalData$age, method="cluster", onlycuts=TRUE),col="red")
-```
-
-Podemos observar que sin pasar ningún argumento y que el algoritmo  escoja el conjunto de particiones se muestran tres clústeres que agrupan las edades en las franjas mencionadas.
-Podemos asignar el propio clúster como una variable más al dataset para trabajar después.
-
-
-```{r}
-totalData$edad_KM <- (discretize(totalData$age, "cluster" ))
-head(totalData)
-```
-
+Los resultados de nuestro modelo de bosque aleatorio muestran que el alcohol y el nivel de sulfatos son los factores que más discriminan la calidad del vino.
 ## Comprobación de la normalidad y homogeneidad de la varianza
 Para la normalidad
 
@@ -183,9 +155,6 @@ Para la homogeneidad
 levene-Test() y fligner.test()
 
 ## Aplicación de pruebas estadísticas
-```{r message= FALSE, warning=FALSE}
-corrplot(cor(datos),method='color',tl.col="black")
-```
 
 Cuando la normalidad y la homocedasticidad se cumplan (p-valores mayores al nivel de significancia), se podrán aplicar pruebas por contraste de hipótesis de tipo paramétrico, como la prueba t de Student. 
 
@@ -214,3 +183,5 @@ kmeans(datos, 5)
 # Representación de los datos
 
 # Conclusiones
+Como observaciones que hemos ido haciendo a lo largo de nuestro EDA, el dataset no dispone de datos sobre tipos de uva, marca de vino, precio de venta del vino, etc. que podrían ayudar a un análisis más detallado.
+Las clases están ordenadas y no equilibradas (por ejemplo, hay muchos más vinos normales que excelentes o malos).
