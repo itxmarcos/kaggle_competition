@@ -1,2 +1,6 @@
 .DS_Store
 .Rproj.user
+.RData
+.Rhistory
+*.xlsx
+PRA2--Limpieza-y-análisis-de-datos.html

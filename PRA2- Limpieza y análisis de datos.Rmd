@@ -20,9 +20,12 @@ csl: ieee.csl
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
+
 Se desea elaborar un proyecto analítico y usar las herramientas de integración, limpieza, validación y análisis de las mismas.
+
 # Dataset "Red Wine Quality"
 ## ¿Por qué es importante? ¿Qué problema pretende responder?
+
 Enlace al dataset de Kaggle [Red Wine Quality](https://www.kaggle.com/datasets/uciml/red-wine-quality-cortez-et-al-2009)
 
 Se incluyen dos conjuntos de datos relacionados con muestras de vino tinto y blanco vinho verde, procedentes del norte de Portugal. El objetivo es modelar la calidad del vino a partir de pruebas fisicoquímicas.
@@ -30,28 +33,41 @@ Se incluyen dos conjuntos de datos relacionados con muestras de vino tinto y bla
 Debido a cuestiones de privacidad y logística, sólo se dispone de variables fisicoquímicas (de entrada) y sensoriales (de salida) (por ejemplo, no hay datos sobre tipos de uva, marca de vino, precio de venta del vino, etc.). Estos conjuntos de datos pueden considerarse tareas de clasificación o de regresión. Las clases están ordenadas y no equilibradas (por ejemplo, hay muchos más vinos normales que excelentes o malos). Se podrían utilizar algoritmos de detección de valores atípicos para detectar los pocos vinos excelentes o malos. Además, no estamos seguros de que todas las variables de entrada sean relevantes. Así que podría ser interesante probar métodos de selección de características [@wine_quality].
 
 ## Descripción
+
 Estos conjuntos de datos pueden considerarse tareas de clasificación o regresión. Las clases están ordenadas y no equilibradas (por ejemplo, hay más vinos normales que excelentes o malos). Los algoritmos de detección de valores atípicos podrían utilizarse para detectar los pocos vinos excelentes o pobres. o pobres. Además, no estamos seguros de que todas las variables de entrada sean relevantes. Así que podría ser interesante probar los métodos de selección de características. 
 
 Nota: varios de los atributos pueden estar correlacionados, por lo que tiene sentido aplicar algún tipo de selección de características.
 
 Variables de entrada (basadas en pruebas fisicoquímicas):
+
 1. `fixed acidity`: acidez fija --> la mayoría de los ácidos que intervienen en el vino son fijos o no volátiles (no se evaporan fácilmente).
+
 2. `volatile acidity`: acidez volátil --> la cantidad de ácido acético en el vino, que en niveles demasiado altos puede producir un sabor desagradable a vinagre.
+
 3. `citric acid`: ácido cítrico --> en pequeñas cantidades, el ácido cítrico puede aportar "frescura" y sabor a los vinos.
+
 4. `residual sugar`: azúcar residual --> la cantidad de azúcar que queda después de la fermentación; es raro encontrar vinos con menos de 1 gramo/litro.
+
 5. `chlorides`: cloruros --> la cantidad de sal en el vino.
+
 6. `free sulfur dioxide`: dióxido de azufre libre --> la forma libre de SO2 existe en equilibrio entre el SO2 molecular (como gas disuelto) y el ion bisulfito.
+
 7. `total sulfur dioxide`: dióxido de azufre total --> la cantidad de formas libres y ligadas de S02; en bajas concentraciones, el SO2 es casi indetectable en el vino.
+
 8. `density`: densidad --> la densidad se aproxima a la del agua en función del porcentaje de alcohol y del contenido de azúcar.
+
 9. `pH`: pH --> describe el grado de acidez o base de un vino en una escala de 0 (muy ácido) a 14 (muy básico); la mayoría de los vinos se sitúan entre 3 y 4 grados.
-10. `sulphates`: sulfatos --> un aditivo del vino que puede contribuir a los niveles de gas de dióxido de azufre (S02), que actúa como antimicrobiano
+
+10. `sulphates`: sulfatos --> un aditivo del vino que puede contribuir a los niveles de gas de dióxido de azufre (S02), que actúa como antimicrobiano.
+
 11. `alcohol`: el porcentaje de alcohol del vino.
 
 Variable de salida (basada en datos sensoriales):
+
 12. `quality`: calidad --> basada en datos sensoriales, puntuación entre 0 y 10.
 
 # Pasos previos a la resolución del problema
-Instalamos y cargamos las librerías necesarias
+Instalamos y cargamos las librerías necesarias:
 ```{r echo=TRUE, message=FALSE, warning=FALSE}
 if (!require('ggplot2')) install.packages('ggplot2'); library('ggplot2')
 if (!require('corrplot')) install.packages('dplyr'); library('corrplot')
@@ -59,8 +75,10 @@ if (!require('randomForest')) install.packages('randomForest'); library('randomF
 if (!require('ggthemes')) install.packages('ggthemes'); library('ggthemes')
 if (!require('reshape2')) install.packages('reshape2'); library('reshape2')
 if (!require('dplyr')) install.packages('dplyr'); library('dplyr')
+if (!require('car')) install.packages('car'); library('car')
+if (!require('writexl')) install.packages('writexl'); library('writexl')
 ```
-Cargamos el fichero de datos
+Cargamos el fichero de datos:
 ```{r}
 wines <- read.csv('winequality-red.csv',stringsAsFactors = FALSE)
 ```
@@ -69,12 +87,126 @@ wines <- read.csv('winequality-red.csv',stringsAsFactors = FALSE)
 wines$good.wine<-ifelse(wines$quality>6,1,0) # Variable que indique si un vino es bueno o malo
 str(wines)
 ```
-Vemo que tenemos 1599 registros y 13 variables que los caracterizan.
+Vemos que tenemos 1599 registros y 13 variables que los caracterizan.
 ```{r echo=TRUE, message=FALSE, warning=FALSE}
 summary(wines)
 ```
-Estas son las estadísticas básicas con skim.
-Intentamos predecir la calidad del vino, por lo que nos interesan las dos últimas columnas/filas para saber cuál de las variables tiene una mayor relación con la calidad del vino. Como sugiere el mapa de calor, el alcohol tiene la mayor correlación con la calidad del vino. 
+Estas son las estadísticas básicas. A continuación revisamos la relación la relación entre las propiedades fisicoquímicas y el hecho de que un vino sea bueno o no (su calidad) para conocer mejor los datos:
+```{r message= FALSE, warning=FALSE}
+#Fixed Acidity and Wine Quality
+ggplot(wines,aes(x=fixed.acidity,fill=factor(good.wine)))+geom_density(alpha=0.25)+
+  geom_vline(aes(xintercept=mean(fixed.acidity[good.wine==0],na.rm=T)),color="red",linetype="dashed",lwd=1)+
+  geom_vline(aes(xintercept=mean(fixed.acidity[good.wine==1],na.rm=T)),color="blue",linetype="dashed",lwd=1)+
+  scale_x_continuous(breaks = seq(4,16,1))+
+  xlab(label = "Fixed Acidity Level")+
+  ggtitle("Distribution of Fixed Acidity Levels")+
+  theme_classic()
+```
+```{r message= FALSE, warning=FALSE}
+#Volatile Acidity and Wine Quality
+ggplot(wines,aes(x=volatile.acidity,fill=factor(good.wine)))+geom_density(alpha=0.25)+
+  geom_vline(aes(xintercept=mean(volatile.acidity[good.wine==0],na.rm=T)),color="red",linetype="dashed",lwd=1)+
+  geom_vline(aes(xintercept=mean(volatile.acidity[good.wine==1],na.rm=T)),color="blue",linetype="dashed",lwd=1)+
+  scale_x_continuous(breaks = seq(0,1.6,0.1))+
+  xlab(label = "Volatile Acidity Level")+
+  ggtitle("Distribution of Volatile Acidity Levels")+
+  theme_classic()
+```
+```{r message= FALSE, warning=FALSE}
+#Citric Acid and Wine Quality
+ggplot(wines,aes(x=citric.acid,fill=factor(good.wine)))+geom_density(alpha=0.25)+
+  geom_vline(aes(xintercept=mean(citric.acid[good.wine==0],na.rm=T)),color="red",linetype="dashed",lwd=1)+
+  geom_vline(aes(xintercept=mean(citric.acid[good.wine==1],na.rm=T)),color="blue",linetype="dashed",lwd=1)+
+  scale_x_continuous(breaks = seq(0,1,0.1))+
+  xlab(label = "Citric Acid Level")+
+  ggtitle("Distribution of Citric Acid Levels")+
+  theme_classic()
+```
+```{r message= FALSE, warning=FALSE}
+#Residual Sugar and Wine Quality
+ggplot(wines,aes(x=residual.sugar,fill=factor(good.wine)))+geom_density(alpha=0.25)+
+  geom_vline(aes(xintercept=mean(residual.sugar[good.wine==0],na.rm=T)),color="red",linetype="dashed",lwd=1)+
+  geom_vline(aes(xintercept=mean(residual.sugar[good.wine==1],na.rm=T)),color="blue",linetype="dashed",lwd=1)+
+  scale_x_continuous(breaks = seq(0.5,15.5,1))+
+  xlab(label = "Residual Sugar Level")+
+  ggtitle("Distribution of Residual Sugar Levels")+
+  theme_classic()
+```
+```{r message= FALSE, warning=FALSE}
+#Chlorides and Wine Quality
+ggplot(wines,aes(x=chlorides,fill=factor(good.wine)))+geom_density(alpha=0.25)+
+  geom_vline(aes(xintercept=mean(chlorides[good.wine==0],na.rm=T)),color="red",linetype="dashed",lwd=1)+
+  geom_vline(aes(xintercept=mean(chlorides[good.wine==1],na.rm=T)),color="blue",linetype="dashed",lwd=1)+
+  scale_x_continuous(breaks = seq(0.01,0.62,0.1))+
+  xlab(label = "Chlorides Level")+
+  ggtitle("Distribution of Chlorides Levels")+
+  theme_classic()
+```
+```{r message= FALSE, warning=FALSE}
+#Free Sulfur Dioxide and Wine Quality
+ggplot(wines,aes(x=free.sulfur.dioxide,fill=factor(good.wine)))+geom_density(alpha=0.25)+
+  geom_vline(aes(xintercept=mean(free.sulfur.dioxide[good.wine==0],na.rm=T)),color="red",linetype="dashed",lwd=1)+
+  geom_vline(aes(xintercept=mean(free.sulfur.dioxide[good.wine==1],na.rm=T)),color="blue",linetype="dashed",lwd=1)+
+  scale_x_continuous(breaks = seq(0,72,8))+
+  xlab(label = "Free Sulfur Dioxide Level")+
+  ggtitle("Distribution of Free Sulfur Dioxide Levels")+
+  theme_classic()
+```
+```{r message= FALSE, warning=FALSE}
+#Total Sulfur Dioxide and Wine Quality
+ggplot(wines,aes(x=total.sulfur.dioxide,fill=factor(good.wine)))+geom_density(alpha=0.25)+
+  geom_vline(aes(xintercept=mean(total.sulfur.dioxide[good.wine==0],na.rm=T)),color="red",linetype="dashed",lwd=1)+
+  geom_vline(aes(xintercept=mean(total.sulfur.dioxide[good.wine==1],na.rm=T)),color="blue",linetype="dashed",lwd=1)+
+  scale_x_continuous(breaks = seq(0,300,20))+
+  xlab(label = "Total Sulfur Dioxide Level")+
+  ggtitle("Distribution of Total Sulfur Dioxide Levels")+
+  theme_classic()
+```
+```{r message= FALSE, warning=FALSE}
+#Density and Wine Quality
+ggplot(wines,aes(x=density,fill=factor(good.wine)))+geom_density(alpha=0.25)+
+  geom_vline(aes(xintercept=mean(density[good.wine==0],na.rm=T)),color="red",linetype="dashed",lwd=1)+
+  geom_vline(aes(xintercept=mean(density[good.wine==1],na.rm=T)),color="blue",linetype="dashed",lwd=1)+
+  scale_x_continuous(breaks = seq(0.9,1.1,0.05))+
+  xlab(label = "Red Wine Density Level")+
+  ggtitle("Distribution of Red Wine Density Levels")+
+  theme_classic()
+```
+```{r message= FALSE, warning=FALSE}
+#PH and Wine Quality
+ggplot(wines,aes(x=pH,fill=factor(good.wine)))+geom_density(alpha=0.25)+
+  geom_vline(aes(xintercept=mean(pH[good.wine==0],na.rm=T)),color="red",linetype="dashed",lwd=1)+
+  geom_vline(aes(xintercept=mean(pH[good.wine==1],na.rm=T)),color="blue",linetype="dashed",lwd=1)+
+  scale_x_continuous(breaks = seq(2.5,5,0.5))+
+  xlab(label = "Red Wine PH Level")+
+  ggtitle("Distribution of Red Wine PH Levels")+
+  theme_classic()
+```
+```{r message= FALSE, warning=FALSE}
+#Sulphates and Wine Quality
+ggplot(wines,aes(x=sulphates,fill=factor(good.wine)))+geom_density(alpha=0.25)+
+  geom_vline(aes(xintercept=mean(sulphates[good.wine==0],na.rm=T)),color="red",linetype="dashed",lwd=1)+
+  geom_vline(aes(xintercept=mean(sulphates[good.wine==1],na.rm=T)),color="blue",linetype="dashed",lwd=1)+
+  scale_x_continuous(breaks = seq(0,2,0.25))+
+  xlab(label = "Sulphates Level")+
+  ggtitle("Distribution of Sulphates Levels")+
+  theme_classic()
+```
+```{r message= FALSE, warning=FALSE}
+#Alcohol and Wine Quality
+ggplot(wines,aes(x=alcohol,fill=factor(good.wine)))+geom_density(alpha=0.25)+
+  geom_vline(aes(xintercept=mean(alcohol[good.wine==0],na.rm=T)),color="red",linetype="dashed",lwd=1)+
+  geom_vline(aes(xintercept=mean(alcohol[good.wine==1],na.rm=T)),color="blue",linetype="dashed",lwd=1)+
+  scale_x_continuous(breaks = seq(8,15,1))+
+  xlab(label = "Alcohol Level")+
+  ggtitle("Distribution of Alcohol Levels")+
+  theme_classic()
+```
+
+Los gráficos exploratorios muestran que los vinos buenos y malos tienen una distribución muy similar de sus correspondientes propiedades fisicoquímicas. Los atributos más discriminantes que podemos observar son los sulfatos y el nivel de alcohol del vino.
+
+Intentamos predecir la calidad del vino, por lo que nos interesan las dos últimas columnas/filas para saber cuál de las variables tiene una mayor relación con la calidad del vino. Como sugiere el mapa de calor, el alcohol tiene la mayor correlación con la calidad del vino.
+
 ```{r message= FALSE, warning=FALSE}
 ggplot(wines,aes(x=quality))+geom_bar(stat = "count",position = "dodge")+
   scale_x_continuous(breaks = seq(3,8,1))+
@@ -84,19 +216,22 @@ ggplot(wines,aes(x=quality))+geom_bar(stat = "count",position = "dodge")+
 ```{r message= FALSE, warning=FALSE}
 ggplot(wines,aes(x=good.wine,fill=factor(good.wine)))+geom_bar(stat = "count",position = "dodge")+
   scale_x_continuous(breaks = seq(0,1,1))+
-  ggtitle("Distribution of Good/Bad Red Wines")
-  theme_classic()
+  ggtitle("Distribución de vinos buenos y malos")
 ```
+
 El gráfico de arriba muestra lo que ya habíamos deducido anteriormente, que los buenos vinos fueron superados por los malos por un amplio margen. La mayoría de los vinos eran mediocres (con una calificación de 5 o 6), pero también pudimos ver que hay algunos vinos malos (3 o 4). La gran mayoría de los buenos vinos tiene una calificación de calidad de 7.
+
 # Limpieza de los datos
-## Valores vacíos
+## Valores nulos, vacíos o 0
 ```{r}
 colSums(is.na(wines))
 colSums(wines=="")
 colSums(wines == 0)
-# sum(wines$citric.acid == 0)
+sum(wines$citric.acid == 0)
 ```
+Únicamente encontrmos 0s en el ácido cítrico. Pero no debemos realizar ninguna actuación, ya que es un valor normal para dicho atributo. Por lo tanto, no existen datos perdidos.
 ## Valores extremos
+Comprobamos si existen valores extremos a través de los boxplot de cada columna:
 ```{r message= FALSE, warning=FALSE}
 par(mfrow=c(2,2))
 boxplot(wines$fixed.acidity)
@@ -112,76 +247,177 @@ boxplot(wines$sulphates)
 boxplot(wines$alcohol)
 boxplot(wines$quality)
 ```
-NOTA: DECIDIR GESTIÓN DE LOS OUTLIERS
-# Análisis de los datos
-Como sugiere el editor, clasificaremos los vinos estableciendo un límite arbitrario para nuestra variable dependiente (calidad del vino), por ejemplo, 7 o más se clasifica como "bueno/1" y el resto como "no bueno/0".
-## Clasificación binaria con Random Forest
-No utilizaremos ningún ajuste de hiperparámetros y nos quedaremos con el valor por defecto de la función randomForest.
+Revisamos el atributo **calidad** de los valores que son outliers para cada columna:
 ```{r message= FALSE, warning=FALSE}
-winesRF<-randomForest(factor(good.wine)~.-quality,wines,ntree=150)
+prop.table(table(wines$quality))*100
+table(wines$quality[which(wines$fixed.acidity %in% c(boxplot.stats(wines$fixed.acidity)$out))])
+table(wines$quality[which(wines$volatile.acidity %in% c(boxplot.stats(wines$volatile.acidity)$out))])
+table(wines$quality[which(wines$citric.acid %in% c(boxplot.stats(wines$citric.acid)$out))])
+table(wines$quality[which(wines$residual.sugar %in% c(boxplot.stats(wines$residual.sugar)$out))])
+table(wines$quality[which(wines$chlorides %in% c(boxplot.stats(wines$chlorides)$out))])
+table(wines$quality[which(wines$free.sulfur.dioxide %in% c(boxplot.stats(wines$free.sulfur.dioxide)$out))])
+table(wines$quality[which(wines$total.sulfur.dioxide %in% c(boxplot.stats(wines$total.sulfur.dioxide)$out))])
+table(wines$quality[which(wines$density %in% c(boxplot.stats(wines$density)$out))])
+table(wines$quality[which(wines$pH %in% c(boxplot.stats(wines$pH)$out))])
+table(wines$quality[which(wines$sulphates %in% c(boxplot.stats(wines$sulphates)$out))])
+table(wines$quality[which(wines$alcohol %in% c(boxplot.stats(wines$alcohol)$out))])
+```
+Cantidad de outliers por calidad del vino:
+
++ **Calidad 3**: 9 - 1.5%
++ **Calidad 4**: 27 - 4.7%
++ **Calidad 5**: 254 - 44.3%
++ **Calidad 6**: 189 - 32.9%
++ **Calidad 7**: 84 - 14.6%
++ **Calidad 8**: 10 - 1.7%
+
+Encontramos un total de **573 outliers** contando muestras repetidas. Además, podemos comprobar que se distribuyen muy similar a la distribución de la calidad. Por ello, **decidimos no eliminarlos** y seguir con el análisis teniendo en cuenta que es habitual encontrar outliers que pertenezcan a valores dentro de los estándares de los atributos del vino.
+
+Finalmente, con el objetivo de comprobar qué diferencia a los vino de buena calidad, creamos una nueva columna que indique si la calidad del vino es buena (7 o más) o no:
+
+```{r message= FALSE, warning=FALSE}
+wines$good.wine <- ifelse(wines$quality>6,1,0)
+```
+
+# Análisis de los datos
+## Selección de los grupos de datos que se quieren analizar/comparar (p. e., si se van a comparar grupos de datos, ¿cuáles son estos grupos y qué tipo de análisis se van a aplicar?)
+
+Se pretende analizar qué atributos son más determinantes en la calidad del vino. Para ello, usaremos regresiones que sean capaces de indicarnos cuáles son.
+
+Además, analizaremos los atributos más importantes para indicar que el vino es de buena calidad.
+
+## Comprobación de la normalidad y homogeneidad de la varianza.
+
+Comprobamos si se cumplen para cada una de los atributos de los que disponemos:
+
++ Para la **normalidad**:
+
+```{r message= FALSE, warning=FALSE}
+for(i in 1:ncol(wines)) {
+  print(paste0("El atributo analizado es ", names(wines)[i]))
+  print(ks.test(wines[, i], pnorm, mean(wines[, i]), sd(wines[, i])))
+  print(shapiro.test(wines[, i]))
+}
+```
+
+Todos los valores están por debajo de 0.05, por lo que la hipótesis nula es rechazada y concluimos que ninguno de los datos cuenta con distribución normal. De todas maneras, por la cantidad de muestras del conjunto de datos, podríamos usar el teorema central del límite para aproximar la distribución de la media a una distribución normal.
+
++ Para la **homogeneidad**:
+
+No hay normalidad en ningún atributo, así que usamos el test de Fligner-Killeen. Para usarlo, compararemos la homogeneidad de todos los atributos con la calidad:
+
+```{r message= FALSE, warning=FALSE}
+for(i in 1:(ncol(wines)-2)) {
+  print(paste0("El atributo comparado con la calidad es ", names(wines)[i]))
+  print(fligner.test(wines$quality ~ wines[, i], wines))
+}
+```
+
+Concluímos que las columnas que no tienen homogeneidad con la calidad son:
+
++ **total.sulfur.dioxide**
++ **sulphates**
++ **alcohol**
+
+Haremos una revisión especial a posteriori de la influencia de estos 3 atributos en la calidad del vino.
+
+## Aplicación de pruebas estadísticas para comparar los grupos de datos. En función de los datos y el objetivo del estudio, aplicar pruebas de contraste de hipótesis, correlaciones, regresiones, etc. Aplicar al menos tres métodos de análisis diferentes.
+
+Revisamos la correlación entre las propiedades:
+
+```{r message= FALSE, warning=FALSE}
+plot(wines)
+corrplot(cor(wines),method='color',tl.col="black")
+```
+
+Se puede apreciar que la correlación lineal más fuerte es con el **alcohol** y con la **volatile.acidity**. En el caso del alcohol, el aumento con la calidad es proporcional. En cambio con la volatilidad de la acidez es inverso.
+
+Para poder comprobar si son los únicos atributos que influyen en la calidad del vino, aplicamos regresión lineal que nos permitirá obtener unos resultados más precisos:
+
+```{r message= FALSE, warning=FALSE}
+modelo <- lm(quality ~ fixed.acidity + volatile.acidity + citric.acid + residual.sugar + chlorides + free.sulfur.dioxide + total.sulfur.dioxide + density + pH + sulphates + alcohol, data = wines)
+summary(modelo)
+plot(modelo)
+```
+
+Se aprecia que afectan significativamente en la calidad los atributos: **volatile.acidity, chlorides, total.sulfur.dioxide, sulphates y alcohol**. Con una significatividad más baja afectan el free.sulfur.dioxide y el pH. Pese a ello, comprobamos en R-squared que el modelo solo es útil para un 36% de las muestras.
+
+De esta manera, generamos un conjunto de datos sin los outliers para comprobar si podemos encontrar un modelo mejor al anterior:
+
+```{r message= FALSE, warning=FALSE}
+datos_limpios <- wines[-c(which(wines$fixed.acidity %in% c(boxplot.stats(wines$fixed.acidity)$out)),which(wines$volatile.acidity %in% c(boxplot.stats(wines$volatile.acidity)$out)),which(wines$citric.acid %in% c(boxplot.stats(wines$citric.acid)$out)),which(wines$residual.sugar %in% c(boxplot.stats(wines$residual.sugar)$out)),which(wines$chlorides %in% c(boxplot.stats(wines$chlorides)$out)),which(wines$free.sulfur.dioxide %in% c(boxplot.stats(wines$free.sulfur.dioxide)$out)),which(wines$total.sulfur.dioxide %in% c(boxplot.stats(wines$total.sulfur.dioxide)$out)),which(wines$density %in% c(boxplot.stats(wines$density)$out)),which(wines$pH %in% c(boxplot.stats(wines$pH)$out)),which(wines$sulphates %in% c(boxplot.stats(wines$sulphates)$out)),which(wines$alcohol %in% c(boxplot.stats(wines$alcohol)$out))), ]
+dim(datos_limpios)
+
+modelo2 <- lm(quality ~ fixed.acidity + volatile.acidity + citric.acid + residual.sugar + chlorides + free.sulfur.dioxide + total.sulfur.dioxide + density + pH + sulphates + alcohol, data = datos_limpios)
+summary(modelo2)
+```
+
+El resultado mejora en un 3% respecto al modelo con los outliers y supone una gran diferencia en los atributos que influyen significativamente en la calidad. En este caso, tendríamos que volatile.acidity, sulphates y alcohol tienen una significancia alta en la calidad del vino, el total.sulfur.dioxide y el pH una significancia media y citric.acid una significancia baja.
+
+Aún así, consideramos que la mejora es demasiado baja teniendo en cuenta que produce una eliminación de 400 muestras, lo que supone un 25% del total. Por lo tanto, optamos por considerar más consistente el modelo anterior.
+
+Antes de concluir qué propiedades son más determinantes para que el vino sea bueno, revisamos la cantidad de muestras de vinos buenos y no buenos de los que disponemos:
+
+```{r message= FALSE, warning=FALSE}
+ggplot(wines,aes(x=good.wine,fill=factor(good.wine)))+geom_bar(stat = "count",position = "dodge")+
+  scale_x_continuous(breaks = seq(0,1,1))+
+  ggtitle("Distribution of Good/Bad Red Wines") + 
+  theme_classic()
+```
+
+Podemos observar que la diferencia entre los dos grupos es muy notable. Sabiendo este dato, podemos esperar que el cálculo con randomForest sea bastante más preciso para el grupo de "no buenos". Revisamos los resultados:
+
+```{r message= FALSE, warning=FALSE}
+winesRF <- randomForest(factor(good.wine)~.-quality,wines,ntree=150)
 winesRF
 ```
-La precisión global de nuestro modelo es bastante buena, en torno al 92%. Sin embargo, podemos ver claramente que es mucho mejor para predecir los vinos malos que los buenos.
-## Importancia de las variables
+
+El modelo con randomForest proporciona un resultado mucho mejor que el de regresión lineal, ya que proporciona un acierto del 92%. Como preveíamos, el modelo aproxima muy bien los casos de vinos "no buenos" (con un 98% de los casos), pero solo es capaz de acertar en el 55% de los que son buenos.
+
+Finalmente, procedemos a revisar las variables que más influyen en que el vino sea bueno:
+
 ```{r message= FALSE, warning=FALSE}
-# Obtener importancia
-importance    <- importance(winesRF)
-
-varImportance <- data.frame(Variables = row.names(importance), 
-                            Importance = round(importance[ ,'MeanDecreaseGini'],2))
-
-# Crear una variable de rango basada en la importancia
-rankImportance <- varImportance %>%
-  mutate(Rank = paste0('#',dense_rank(desc(Importance))))
-
-# Visualizar la importancia relativa de las variables
-ggplot(rankImportance, aes(x = reorder(Variables, Importance), 
-                           y = Importance, fill = Importance)) +
+importance <- importance(winesRF)
+varImportance <- data.frame(Variables = row.names(importance), Importance = round(importance[,'MeanDecreaseGini'],2))
+rankImportance <- varImportance %>% mutate(Rank = paste0('#',dense_rank(desc(Importance)))) # Crear una variable de rango basada en la importancia
+ggplot(rankImportance, aes(x = reorder(Variables, Importance), y = Importance, fill = Importance)) +
   geom_bar(stat='identity') + 
-  geom_text(aes(x = Variables, y = 0.5, label = Rank),
-            hjust=0, vjust=0.55, size = 4, colour = 'red') +
+  geom_text(aes(x = Variables, y = 0.5, label = Rank), hjust=0, vjust=0.55, size = 4, colour = 'red') +
   labs(x = 'Variables') +
   coord_flip() + 
   theme_classic()
 ```
-Los resultados de nuestro modelo de bosque aleatorio muestran que el alcohol y el nivel de sulfatos son los factores que más discriminan la calidad del vino.
-## Comprobación de la normalidad y homogeneidad de la varianza
-Para la normalidad
 
-ks.test() y shapiro.test()
+Observamos en los resultados que el atributo que más influye en la calidad del vino es el alcohol, seguido de los sulfatos y de la volatilidad de la acidez.
 
-Para la homogeneidad
+Extraemos el conjunto de datos final en un excel:
 
-levene-Test() y fligner.test()
+```{r message= FALSE, warning=FALSE}
+write_xlsx(wines, path="winequality-red-final.xlsx", col_names = TRUE)
+```
 
-## Aplicación de pruebas estadísticas
+# Resolución del problema. A partir de los resultados obtenidos, ¿cuáles son las conclusiones? ¿Los resultados permiten responder al problema?
 
-Cuando la normalidad y la homocedasticidad se cumplan (p-valores mayores al nivel de significancia), se podrán aplicar pruebas por contraste de hipótesis de tipo paramétrico, como la prueba t de Student. 
+El objetivo del análisis del conjunto de datos sobre los atributos del vino y su calidad era conocer qué propiedades afectaban más en la calidad del vino y en considerar a un vino como bueno.
 
-t.test()
+Hemos podido comprobar que los valores tienen una desviación muy grande, con lo que detectamos que más de un tercio de las muestras son outlier para alguno de los atributos.
 
-En los casos en los que no se cumplan, se deberán aplicar pruebas no paramétricas como Wilcoxon (cuando se comparen datos dependientes) o Mann-Whitney (cuando los grupos de datos sean independientes)
+Pese a ello, hemos obtenido los siguientes resultados:
 
-fligner.test()
++ **Total.sulfur.dioxide**, **sulphates** y **alcohol** no tienen homogeneidad con la calidad.
++ Existe una correlación lineal entre la calidad y los atributos **alcohol** y **volatile.acidity**. Por ello, hemos optado por realizar un modelo basado en regresión lineal.
++ El modelo de regresión lineal únicamente es capaz de **acertar en el 36% de los casos**. Conluímos que los atributos que más afectan a la calidad del vino son: **volatile.acidity, chlrides, total.sulfur.dioxide, sulphates y alcohol**.
++ El modelo de regresión lineal **sin los outliers** mejora un 3%, pero omite demasiadas muestras.
++ El modelo de randomForest tiene un acierto del 92%, teniendo en cuenta que aproxima mucho mejor los vinos "no buenos" que lo buenos. Conluímos que los atributos que más afectan a la calidad del vino son: **alcohol, sulphates y volatile.acidity**.
 
-Regresión lineal:
+Podemos concluir que **randomForest es un buen modelo** para el conjunto de datos de los que disponemos. Además, nos ayuda a darnos cuenta que el modelo de regresión lineal sin los outliers indicaba los atributos significativos tan bien como el randomForest.
 
-lm()
+Por lo tanto, hemos llegado a darnos cuenta de que **las propiedades más importantes en la determinación de la calidad del vino son el alcohol, los sulfatos y la volatilidad de la acidez**.
 
-Regresión logística:
+# Tabla de contribuciones
 
-glm()
-
-Árboles de decisión:
-
-C50::C5.0()
-
-Clusters por kmeans:
-
-kmeans(datos, 5)
-
-# Representación de los datos
-
-# Conclusiones
-Como observaciones que hemos ido haciendo a lo largo de nuestro EDA, el dataset no dispone de datos sobre tipos de uva, marca de vino, precio de venta del vino, etc. que podrían ayudar a un análisis más detallado.
-Las clases están ordenadas y no equilibradas (por ejemplo, hay muchos más vinos normales que excelentes o malos).
+| Contribuciones              | Firma       |
+|-----------------------------|-------------|
+| Investigación previa        | M.C y J.P   |
+| Redacción de las respuestas | M.C y J.P   |
+| Desarrollo código           | M.C y J.P   |
