@@ -1,7 +1,7 @@
 ---
 title: "PRA2: Limpieza y análisis de datos"
 author: "Joshua Prior Avila y Marcos Caballero"
-date: "Mayo 2022"
+date: "Junio 2022"
 output:
   html_document:
     highlight: default
@@ -247,6 +247,7 @@ boxplot(wines$sulphates)
 boxplot(wines$alcohol)
 boxplot(wines$quality)
 ```
+
 Revisamos el atributo **calidad** de los valores que son outliers para cada columna:
 ```{r message= FALSE, warning=FALSE}
 prop.table(table(wines$quality))*100
@@ -273,12 +274,6 @@ Cantidad de outliers por calidad del vino:
 
 Encontramos un total de **573 outliers** contando muestras repetidas. Además, podemos comprobar que se distribuyen muy similar a la distribución de la calidad. Por ello, **decidimos no eliminarlos** y seguir con el análisis teniendo en cuenta que es habitual encontrar outliers que pertenezcan a valores dentro de los estándares de los atributos del vino.
 
-Finalmente, con el objetivo de comprobar qué diferencia a los vino de buena calidad, creamos una nueva columna que indique si la calidad del vino es buena (7 o más) o no:
-
-```{r message= FALSE, warning=FALSE}
-wines$good.wine <- ifelse(wines$quality>6,1,0)
-```
-
 # Análisis de los datos
 ## Selección de los grupos de datos que se quieren analizar/comparar (p. e., si se van a comparar grupos de datos, ¿cuáles son estos grupos y qué tipo de análisis se van a aplicar?)
 
@@ -288,7 +283,7 @@ Además, analizaremos los atributos más importantes para indicar que el vino es
 
 ## Comprobación de la normalidad y homogeneidad de la varianza.
 
-Comprobamos si se cumplen para cada una de los atributos de los que disponemos:
+Comprobamos si se cumplen para cada una de los atributos de los que disponemos [@introduccion_limpieza_analisis_datos]:
 
 + Para la **normalidad**:
 
@@ -421,3 +416,5 @@ Por lo tanto, hemos llegado a darnos cuenta de que **las propiedades más import
 | Investigación previa        | M.C y J.P   |
 | Redacción de las respuestas | M.C y J.P   |
 | Desarrollo código           | M.C y J.P   |
+
+# Bibliografía
