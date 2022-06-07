@@ -230,7 +230,9 @@ colSums(wines == 0)
 sum(wines$citric.acid == 0)
 ```
 Únicamente encontrmos 0s en el ácido cítrico. Pero no debemos realizar ninguna actuación, ya que es un valor normal para dicho atributo. Por lo tanto, no existen datos perdidos.
+
 ## Valores extremos
+
 Comprobamos si existen valores extremos a través de los boxplot de cada columna:
 ```{r message= FALSE, warning=FALSE}
 par(mfrow=c(2,2))
